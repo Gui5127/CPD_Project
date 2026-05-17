@@ -33,43 +33,51 @@ def find_max_prime_sequential(timeout: int) -> int:
         if is_prime(candidate):
             max_prime = candidate
 
-        candidate += 1
+        if candidate == 2:
+            candidate = 3
+        else:
+            candidate += 2
 
     return max_prime
 
 
-def prime_worker(start, step, end_time, shared_max):
+def prime_worker(start, step, end_time, shared_max, lock):
+
     candidate = start
 
     while time.time() < end_time:
 
         if is_prime(candidate):
 
-            if candidate > shared_max.value:
-                shared_max.value = candidate
+            with lock:
+
+                if candidate > shared_max.value:
+                    shared_max.value = candidate
 
         candidate += step
 
 
 def find_max_prime_parallel(timeout: int, workers: int) -> int:
-
     end_time = time.time() + timeout
 
     shared_max = multiprocessing.Value('q', 2)
 
+    lock = multiprocessing.Lock()
+
     processes = []
 
     for i in range(workers):
-
         start = 3 + (i * 2)
+
         step = workers * 2
 
         p = multiprocessing.Process(
             target=prime_worker,
-            args=(start, step, end_time, shared_max)
+            args=(start, step, end_time, shared_max, lock)
         )
 
         processes.append(p)
+
         p.start()
 
     for p in processes:
