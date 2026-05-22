@@ -1,11 +1,110 @@
-from multiprocessing import Pool
-def count_neighbors(grid, row, col):
+import multiprocessing
+from multiprocessing import shared_memory
+import struct
+
+
+# =========================================================
+# CONFIG
+# =========================================================
+
+CELL_BYTES_SIZE = 4  # int32
+
+
+# =========================================================
+# SHARED MEMORY HELPERS
+# =========================================================
+
+def create_shared_grid(grid):
+
     rows = len(grid)
     cols = len(grid[0])
 
-    count = 0
+    total_cells = rows * cols
+
+    shm = shared_memory.SharedMemory(
+        create=True,
+        size=total_cells * CELL_BYTES_SIZE
+    )
+
+    buffer = shm.buf
+
+    index = 0
+
+    for row in grid:
+
+        for value in row:
+
+            struct.pack_into(
+                'i',
+                buffer,
+                index * CELL_BYTES_SIZE,
+                value
+            )
+
+            index += 1
+
+    return shm
+
+
+def read_cell(buffer, cols, row, col):
+
+    index = row * cols + col
+
+    return struct.unpack_from(
+        'i',
+        buffer,
+        index * CELL_BYTES_SIZE
+    )[0]
+
+
+def write_cell(buffer, cols, row, col, value):
+
+    index = row * cols + col
+
+    struct.pack_into(
+        'i',
+        buffer,
+        index * CELL_BYTES_SIZE,
+        value
+    )
+
+
+def shared_to_grid(shm, rows, cols):
+
+    buffer = shm.buf
+
+    grid = []
+
+    for row in range(rows):
+
+        line = []
+
+        for col in range(cols):
+
+            line.append(
+                read_cell(
+                    buffer,
+                    cols,
+                    row,
+                    col
+                )
+            )
+
+        grid.append(line)
+
+    return grid
+
+
+# =========================================================
+# GAME OF LIFE
+# =========================================================
+
+def count_neighbors(buffer, rows, cols, row, col):
+
+    neighbors = 0
 
     for dr in [-1, 0, 1]:
+
         for dc in [-1, 0, 1]:
 
             if dr == 0 and dc == 0:
@@ -14,10 +113,19 @@ def count_neighbors(grid, row, col):
             nr = row + dr
             nc = col + dc
 
-            if 0 <= nr < rows and 0 <= nc < cols:
-                count += grid[nr][nc]
+            if (
+                0 <= nr < rows and
+                0 <= nc < cols
+            ):
 
-    return count
+                neighbors += read_cell(
+                    buffer,
+                    cols,
+                    nr,
+                    nc
+                )
+
+    return neighbors
 
 
 def next_generation(grid):
@@ -25,107 +133,248 @@ def next_generation(grid):
     rows = len(grid)
     cols = len(grid[0])
 
-    new_grid = [[0 for _ in range(cols)] for _ in range(rows)]
+    new_grid = [
+        [0 for _ in range(cols)]
+        for _ in range(rows)
+    ]
 
-    for r in range(rows):
-        for c in range(cols):
+    for row in range(rows):
 
-            neighbors = count_neighbors(grid, r, c)
+        for col in range(cols):
 
-            if grid[r][c] == 1:
+            alive = grid[row][col]
+
+            neighbors = 0
+
+            for dr in [-1, 0, 1]:
+
+                for dc in [-1, 0, 1]:
+
+                    if dr == 0 and dc == 0:
+                        continue
+
+                    nr = row + dr
+                    nc = col + dc
+
+                    if (
+                        0 <= nr < rows and
+                        0 <= nc < cols
+                    ):
+
+                        neighbors += grid[nr][nc]
+
+            # Conway rules
+
+            if alive == 1:
 
                 if neighbors in (2, 3):
-                    new_grid[r][c] = 1
+                    new_grid[row][col] = 1
 
             else:
 
                 if neighbors == 3:
-                    new_grid[r][c] = 1
+                    new_grid[row][col] = 1
 
     return new_grid
 
 
-def game_of_life_sequential(grid, generations):
+def game_of_life_sequential(
+    grid,
+    generations
+):
 
     current = grid
 
     for _ in range(generations):
+
         current = next_generation(current)
 
     return current
 
-def compute_chunk(args):
 
-    grid, start_row, end_row = args
+# =========================================================
+# PARALLEL WORKER
+# =========================================================
+
+def persistent_worker(
+    task_queue,
+    result_queue
+):
+
+    while True:
+
+        task = task_queue.get()
+
+        if task is None:
+            break
+
+        (
+            worker_id,
+            shm_name_current,
+            shm_name_next,
+            rows,
+            cols,
+            start_row,
+            end_row
+        ) = task
+
+        current_shm = shared_memory.SharedMemory(
+            name=shm_name_current
+        )
+
+        next_shm = shared_memory.SharedMemory(
+            name=shm_name_next
+        )
+
+        current_buffer = current_shm.buf
+        next_buffer = next_shm.buf
+
+        for row in range(start_row, end_row):
+
+            for col in range(cols):
+
+                alive = read_cell(
+                    current_buffer,
+                    cols,
+                    row,
+                    col
+                )
+
+                neighbors = count_neighbors(
+                    current_buffer,
+                    rows,
+                    cols,
+                    row,
+                    col
+                )
+
+                value = 0
+
+                # Conway rules
+
+                if alive == 1:
+
+                    if neighbors in (2, 3):
+                        value = 1
+
+                else:
+
+                    if neighbors == 3:
+                        value = 1
+
+                write_cell(
+                    next_buffer,
+                    cols,
+                    row,
+                    col,
+                    value
+                )
+
+        current_shm.close()
+        next_shm.close()
+
+        result_queue.put(worker_id)
+
+
+# =========================================================
+# PARALLEL VERSION
+# =========================================================
+
+def game_of_life_parallel(
+    grid,
+    generations,
+    workers
+):
 
     rows = len(grid)
     cols = len(grid[0])
 
-    partial = []
+    current_shm = create_shared_grid(grid)
 
-    for r in range(start_row, end_row):
+    next_shm = shared_memory.SharedMemory(
+        create=True,
+        size=rows * cols * CELL_BYTES_SIZE
+    )
 
-        new_row = []
+    task_queue = multiprocessing.Queue()
 
-        for c in range(cols):
+    result_queue = multiprocessing.Queue()
 
-            neighbors = count_neighbors(grid, r, c)
+    processes = []
 
-            if grid[r][c] == 1:
+    # Criar workers persistentes
+    for _ in range(workers):
 
-                if neighbors in (2, 3):
-                    new_row.append(1)
-                else:
-                    new_row.append(0)
+        p = multiprocessing.Process(
+            target=persistent_worker,
+            args=(
+                task_queue,
+                result_queue
+            )
+        )
 
-            else:
+        p.start()
 
-                if neighbors == 3:
-                    new_row.append(1)
-                else:
-                    new_row.append(0)
-
-        partial.append(new_row)
-
-    return partial
-
-
-def game_of_life_parallel(grid, generations, workers):
-
-    workers = min(workers, len(grid))
-
-    current = grid
-
-    rows = len(grid)
+        processes.append(p)
 
     chunk_size = rows // workers
 
-    with Pool(workers) as pool:
+    for _ in range(generations):
 
-        for _ in range(generations):
+        # Distribuir tarefas
+        for i in range(workers):
 
-            tasks = []
+            start_row = i * chunk_size
 
-            start = 0
+            if i == workers - 1:
+                end_row = rows
+            else:
+                end_row = start_row + chunk_size
 
-            for i in range(workers):
+            task_queue.put(
+                (
+                    i,
+                    current_shm.name,
+                    next_shm.name,
+                    rows,
+                    cols,
+                    start_row,
+                    end_row
+                )
+            )
 
-                end = start + chunk_size
+        # Esperar workers
+        for _ in range(workers):
 
-                if i == workers - 1:
-                    end = rows
+            result_queue.get()
 
-                tasks.append((current, start, end))
+        # Swap memória
+        current_shm, next_shm = (
+            next_shm,
+            current_shm
+        )
 
-                start = end
+    # Terminar workers
+    for _ in range(workers):
 
-            results = pool.map(compute_chunk, tasks)
+        task_queue.put(None)
 
-            new_grid = []
+    for p in processes:
 
-            for part in results:
-                new_grid.extend(part)
+        p.join()
 
-            current = new_grid
+    # Converter resultado final
+    result = shared_to_grid(
+        current_shm,
+        rows,
+        cols
+    )
 
-    return current
+    # Cleanup
+    current_shm.close()
+    current_shm.unlink()
+
+    next_shm.close()
+    next_shm.unlink()
+
+    return result

@@ -4,6 +4,7 @@ from primos import is_prime
 from game_of_life import game_of_life_sequential
 import multiprocessing
 import time
+from game_of_life_gui import run_gui
 
 TIMEOUT_OPTIONS = [
     5,
@@ -121,13 +122,14 @@ def main():
     while True:
 
         print("\n==============================")
-        print("      MENU TESTES PRIMOS")
+        print("      MENU DE TESTES")
         print("==============================\n")
 
         print("1. Teste Sequencial")
         print("2. Teste Paralelo")
         print("3. Benchmark Completo")
-        print("4. Sair")
+        print("4. Game of Life")
+        print("5. Sair")
 
         choice = input("\nEscolha uma opção: ")
 
@@ -150,6 +152,10 @@ def main():
             benchmark_all()
 
         elif choice == "4":
+
+            run_gui()
+
+        elif choice == "5":
 
             print("\nA terminar programa...\n")
 
