@@ -1,10 +1,11 @@
 import tkinter as tk
 import random
 
-from game_of_life import (
-    game_of_life_sequential,
-    game_of_life_parallel
-)
+try:
+    from rpc_client import RPCClient
+    RPC_AVAILABLE = True
+except:
+    RPC_AVAILABLE = False
 
 
 # =========================================================
@@ -41,8 +42,21 @@ class GameOfLifeGUI:
         self.root = root
 
         self.root.title(
-            "Game of Life"
+            "Distributed Game of Life"
         )
+
+        self.rpc = None
+
+        if RPC_AVAILABLE:
+
+            try:
+                self.rpc = RPCClient()
+                print("Servidor RPC ligado")
+                print("O Game of Life será iniciado remotamente.")
+
+            except:
+                print("Servidor RPC não disponível.")
+                print("O Game of Life será iniciado localmente.")
 
         self.running = False
 
@@ -55,9 +69,11 @@ class GameOfLifeGUI:
         # CANVAS
         # =================================================
 
+        LEGEND_WIDTH = 180
+
         self.canvas = tk.Canvas(
             root,
-            width=GRID_COLS * CELL_SIZE,
+            width=(GRID_COLS * CELL_SIZE) + LEGEND_WIDTH,
             height=GRID_ROWS * CELL_SIZE,
             bg="#202020"
         )
@@ -80,8 +96,6 @@ class GameOfLifeGUI:
 
         controls.pack(pady=10)
 
-        # MODE
-
         self.mode = tk.StringVar(
             value="Sequential"
         )
@@ -99,8 +113,6 @@ class GameOfLifeGUI:
             variable=self.mode,
             value="Parallel"
         ).pack(side=tk.LEFT)
-
-        # WORKERS
 
         tk.Label(
             controls,
@@ -187,13 +199,12 @@ class GameOfLifeGUI:
             self.workers_entry.get()
         )
 
-        chunk_size = GRID_ROWS // workers
+        chunk_size = max(
+            1,
+            GRID_ROWS // workers
+        )
 
         for row in range(GRID_ROWS):
-
-            # =============================================
-            # COR DO WORKER
-            # =============================================
 
             if mode == "Parallel":
 
@@ -204,7 +215,7 @@ class GameOfLifeGUI:
 
                 worker_color = WORKER_COLORS[
                     worker_id % len(WORKER_COLORS)
-                    ]
+                ]
 
             else:
 
@@ -220,17 +231,11 @@ class GameOfLifeGUI:
 
                 alive = self.grid[row][col]
 
-                # =========================================
-                # CÉLULAS
-                # =========================================
-
-                if alive == 1:
-
-                    fill = "#ffffff"
-
-                else:
-
-                    fill = "#202020"
+                fill = (
+                    "#FFFFFF"
+                    if alive == 1
+                    else "#202020"
+                )
 
                 self.canvas.create_rectangle(
                     x1,
@@ -242,15 +247,14 @@ class GameOfLifeGUI:
                     width=1
                 )
 
-        # =============================================
-        # LEGEND
-        # =============================================
-
         if mode == "Parallel":
-            self.draw_worker_legend(workers)
+
+            self.draw_worker_legend(
+                workers
+            )
 
     # =====================================================
-    # CELL TOGGLE
+    # TOGGLE CELL
     # =====================================================
 
     def toggle_cell(self, event):
@@ -278,12 +282,51 @@ class GameOfLifeGUI:
 
         mode = self.mode.get()
 
+        # ============================================
+        # SEQUENTIAL
+        # ============================================
+
         if mode == "Sequential":
 
-            self.grid = game_of_life_sequential(
-                self.grid,
-                1
-            )
+            # RPC
+            if self.rpc:
+
+                response = self.rpc.request(
+                    "game_of_life",
+                    {
+                        "grid": self.grid,
+                        "generations": 1
+                    }
+                )
+
+                if "result" in response:
+
+                    self.grid = response["result"]
+
+                else:
+
+                    print(
+                        "Erro RPC:",
+                        response
+                    )
+
+            # LOCAL
+            else:
+
+                from game_of_life import (
+                    game_of_life_sequential
+                )
+
+                self.grid = (
+                    game_of_life_sequential(
+                        self.grid,
+                        1
+                    )
+                )
+
+        # ============================================
+        # PARALLEL
+        # ============================================
 
         else:
 
@@ -291,16 +334,48 @@ class GameOfLifeGUI:
                 self.workers_entry.get()
             )
 
-            self.grid = game_of_life_parallel(
-                self.grid,
-                1,
-                workers
-            )
+            # RPC
+            if self.rpc:
+
+                response = self.rpc.request(
+                    "game_of_life_parallel",
+                    {
+                        "grid": self.grid,
+                        "generations": 1,
+                        "workers": workers
+                    }
+                )
+
+                if "result" in response:
+
+                    self.grid = response["result"]
+
+                else:
+
+                    print(
+                        "Erro RPC:",
+                        response
+                    )
+
+            # LOCAL
+            else:
+
+                from game_of_life import (
+                    game_of_life_parallel
+                )
+
+                self.grid = (
+                    game_of_life_parallel(
+                        self.grid,
+                        1,
+                        workers
+                    )
+                )
 
         self.draw_grid()
 
     # =====================================================
-    # AUTO RUN
+    # RUN LOOP
     # =====================================================
 
     def run_loop(self):
@@ -372,35 +447,51 @@ class GameOfLifeGUI:
 
         self.draw_grid()
 
-def draw_worker_legend(self, workers):
+    # =====================================================
+    # WORKER LEGEND
+    # =====================================================
 
-    legend_x = 10
-    legend_y = 10
 
-    for i in range(workers):
+    def draw_worker_legend(self, workers):
 
-        color = WORKER_COLORS[
-            i % len(WORKER_COLORS)
-        ]
-
-        y = legend_y + (i * 25)
-
-        self.canvas.create_rectangle(
-            legend_x,
-            y,
-            legend_x + 20,
-            y + 20,
-            fill=color,
-            outline="white"
-        )
+        # Começar fora da grid
+        legend_x = (GRID_COLS * CELL_SIZE) + 20
+        legend_y = 20
 
         self.canvas.create_text(
-            legend_x + 80,
-            y + 10,
-            text=f"Worker {i}",
+            legend_x,
+            0,
+            text="Workers",
             fill="white",
-            anchor="w"
+            anchor="nw",
+            font=("Arial", 12, "bold")
         )
+
+        for i in range(workers):
+            color = WORKER_COLORS[
+                i % len(WORKER_COLORS)
+                ]
+
+            y = legend_y + (i * 30)
+
+            self.canvas.create_rectangle(
+                legend_x,
+                y,
+                legend_x + 20,
+                y + 20,
+                fill=color,
+                outline="white"
+            )
+
+            self.canvas.create_text(
+                legend_x + 30,
+                y + 10,
+                text=f"Worker {i}",
+                fill="white",
+                anchor="w"
+            )
+
+
 
 # =========================================================
 # START GUI

@@ -34,6 +34,8 @@ def find_max_prime_sequential(timeout: int) -> int:
         if is_prime(candidate):
             max_prime = candidate
 
+            print(max_prime)
+
         if candidate == 2:
             candidate = 3
         else:
@@ -143,6 +145,14 @@ def pipeline_worker(
                                     SEGMENT_SIZE
                                 )
 
+                                # PRINT DO SALTO DE SEGMENTO
+                                print(
+                                    f"[Worker {recycled_worker}] "
+                                    f"saltou para segmento "
+                                    f"{new_segment} -> "
+                                    f"{new_segment + SEGMENT_SIZE}"
+                                )
+
                                 segment_starts[
                                     recycled_worker
                                 ] = new_segment
@@ -198,6 +208,8 @@ def pipeline_worker(
         # Pequena pausa anti busy-wait
         if not found:
             time.sleep(0.001)
+
+        #Ver isto depois not goood at all
 
 
 def find_max_prime_parallel(
