@@ -1,32 +1,8 @@
 from primos import find_max_prime_parallel
 from primos import find_max_prime_sequential
-from primos import is_prime
-from game_of_life import game_of_life_sequential
 import multiprocessing
 import time
 from game_of_life_gui import run_gui
-
-TIMEOUT_OPTIONS = [
-    5,
-    30,
-    60,
-    120,
-    180,
-    240,
-    300
-]
-
-
-WORKER_OPTIONS = [
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8
-]
 
 
 def run_sequential(timeout):
@@ -60,62 +36,12 @@ def run_parallel(timeout, workers):
     print(f"Tempo real: {elapsed:.2f}s")
 
 
-def benchmark_all():
-
-    print("\n===== BENCHMARK COMPLETO =====\n")
-
-    print("\n--- SEQUENCIAL ---\n")
-
-    for timeout in TIMEOUT_OPTIONS:
-
-        start = time.time()
-
-        result = find_max_prime_sequential(timeout)
-
-        elapsed = time.time() - start
-
-        print(f"[SEQ] Timeout={timeout}s | Primo={result} | Tempo={elapsed:.2f}s")
-
-    print("\n--- PARALELO ---\n")
-
-    for workers in WORKER_OPTIONS:
-
-        for timeout in TIMEOUT_OPTIONS:
-
-            start = time.time()
-
-            result = find_max_prime_parallel(timeout, workers)
-
-            elapsed = time.time() - start
-
-            print(
-                f"[PAR] Workers={workers} | Timeout={timeout}s "
-                f"| Primo={result} | Tempo={elapsed:.2f}s"
-            )
-
-
 def choose_timeout():
-
-    print("\nEscolha timeout:\n")
-
-    for i, timeout in enumerate(TIMEOUT_OPTIONS, start=1):
-        print(f"{i}. {timeout}s")
-
-    option = int(input("\nOpção: "))
-
-    return TIMEOUT_OPTIONS[option - 1]
+    return int(input("\nInsere o timeout (em segundos): "))
 
 
 def choose_workers():
-
-    print("\nEscolha número de workers:\n")
-
-    for i, workers in enumerate(WORKER_OPTIONS, start=1):
-        print(f"{i}. {workers}")
-
-    option = int(input("\nOpção: "))
-
-    return WORKER_OPTIONS[option - 1]
+    return int(input("\nInsere o número de workers: "))
 
 
 def main():
@@ -128,38 +54,29 @@ def main():
 
         print("1. Teste Sequencial")
         print("2. Teste Paralelo")
-        print("3. Benchmark Completo")
-        print("4. Game of Life")
-        print("5. Sair")
+        print("3. Game of Life")
+        print("4. Sair")
 
         choice = input("\nEscolha uma opção: ")
 
         if choice == "1":
 
             timeout = choose_timeout()
-
             run_sequential(timeout)
 
         elif choice == "2":
 
             timeout = choose_timeout()
-
             workers = choose_workers()
-
             run_parallel(timeout, workers)
 
         elif choice == "3":
 
-            benchmark_all()
+            run_gui()
 
         elif choice == "4":
 
-            run_gui()
-
-        elif choice == "5":
-
             print("\nA terminar programa...\n")
-
             break
 
         else:

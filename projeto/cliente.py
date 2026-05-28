@@ -10,7 +10,7 @@ def main():
         print("\n===== CLIENTE RPC =====\n")
 
         print("1. is_prime")
-        print("3. find_max_prime_sequential")
+        print("2. find_max_prime_sequential")
         print("3. find_max_prime_parallel")
         print("4. game_of_life")
         print("5. list_methods")
@@ -42,7 +42,7 @@ def main():
         # FIND MAX PRIME SEQUENTIAL
         # =================================================
 
-        elif choice == "3":
+        elif choice == "2":
 
             timeout = int(
                 input("Timeout: ")
@@ -87,7 +87,7 @@ def main():
         # GAME OF LIFE GUI
         # =================================================
 
-        elif choice == "3":
+        elif choice == "4":
 
             from game_of_life_gui import (
                 run_gui
@@ -99,7 +99,7 @@ def main():
         # LIST METHODS
         # =================================================
 
-        elif choice == "4":
+        elif choice == "5":
 
             response = rpc.request(
                 "list_methods",
@@ -130,7 +130,7 @@ def main():
         # EXIT
         # =================================================
 
-        elif choice == "5":
+        elif choice == "6":
 
             rpc.close()
 
