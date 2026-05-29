@@ -1,9 +1,12 @@
 import multiprocessing
 import time
 
-SEGMENT_SIZE = 100_000
+
+SEGMENT_SIZE = 10_000_000
+
 
 def is_prime(n: int) -> bool:
+
     if n < 2:
         return False
 
@@ -16,6 +19,7 @@ def is_prime(n: int) -> bool:
     divisor = 5
 
     while divisor * divisor <= n:
+
         if n % divisor == 0 or n % (divisor + 2) == 0:
             return False
 
@@ -23,18 +27,19 @@ def is_prime(n: int) -> bool:
 
     return True
 
+
 def find_max_prime_sequential(timeout: int) -> int:
+
     start = time.time()
 
     candidate = 2
+
     max_prime = 2
 
     while time.time() - start < timeout:
 
         if is_prime(candidate):
             max_prime = candidate
-
-            print(max_prime)
 
         if candidate == 2:
             candidate = 3
@@ -46,6 +51,7 @@ def find_max_prime_sequential(timeout: int) -> int:
 
 def pipeline_worker(
     worker_id,
+    workers,
     pipeline_order,
     segment_starts,
     segment_primes,
@@ -59,27 +65,35 @@ def pipeline_worker(
 
         with lock:
 
-            current_order = list(pipeline_order)
+            # Encontrar posição atual
+            my_position = -1
 
-            my_position = current_order.index(worker_id)
+            for i in range(workers):
 
-            my_segment_start = segment_starts[worker_id]
+                if pipeline_order[i] == worker_id:
+                    my_position = i
+                    break
+
+            my_segment_start = (
+                segment_starts[worker_id]
+            )
 
             my_segment_end = (
                 my_segment_start + SEGMENT_SIZE
             )
 
-            # Primeiro worker da pipeline
+            # Primeiro worker
             if my_position == 0:
                 target_prime = 2
             else:
-                previous_worker = current_order[
-                    my_position - 1
-                ]
 
-                target_prime = segment_primes[
-                    previous_worker
-                ]
+                previous_worker = (
+                    pipeline_order[my_position - 1]
+                )
+
+                target_prime = (
+                    segment_primes[previous_worker]
+                )
 
         candidate = my_segment_start
 
@@ -102,20 +116,25 @@ def pipeline_worker(
                     with lock:
 
                         # Revalidar posição
-                        current_order = list(
-                            pipeline_order
-                        )
+                        my_position = -1
 
-                        my_position = current_order.index(
-                            worker_id
-                        )
+                        for i in range(workers):
 
-                        # Primeiro worker nunca roda
+                            if (
+                                pipeline_order[i] ==
+                                worker_id
+                            ):
+
+                                my_position = i
+                                break
+
                         if my_position > 0:
 
-                            previous_worker = current_order[
-                                my_position - 1
-                            ]
+                            previous_worker = (
+                                pipeline_order[
+                                    my_position - 1
+                                ]
+                            )
 
                             previous_prime = (
                                 segment_primes[
@@ -123,15 +142,14 @@ def pipeline_worker(
                                 ]
                             )
 
-                            # Confirmar condição ainda válida
                             if candidate > previous_prime:
 
-                                # Guardar primo atual
+                                # Atualizar primo
                                 segment_primes[
                                     worker_id
                                 ] = candidate
 
-                                # Worker anterior sai da frente
+                                # Worker reciclado
                                 recycled_worker = (
                                     previous_worker
                                 )
@@ -146,12 +164,12 @@ def pipeline_worker(
                                 )
 
                                 # PRINT DO SALTO DE SEGMENTO
-                                print(
+                                """print(
                                     f"[Worker {recycled_worker}] "
                                     f"saltou para segmento "
                                     f"{new_segment} -> "
                                     f"{new_segment + SEGMENT_SIZE}"
-                                )
+                                )"""
 
                                 segment_starts[
                                     recycled_worker
@@ -161,16 +179,23 @@ def pipeline_worker(
                                     recycled_worker
                                 ] = 0
 
-                                # Rodar pipeline
-                                pipeline_order.remove(
-                                    recycled_worker
-                                )
+                                # Rotação manual
+                                for j in range(
+                                    my_position - 1,
+                                    workers - 1
+                                ):
 
-                                pipeline_order.append(
-                                    recycled_worker
-                                )
+                                    pipeline_order[j] = (
+                                        pipeline_order[
+                                            j + 1
+                                        ]
+                                    )
 
-                                # Atualizar máximo global
+                                pipeline_order[
+                                    workers - 1
+                                ] = recycled_worker
+
+                                # Máximo global
                                 if (
                                     candidate >
                                     shared_max.value
@@ -182,7 +207,7 @@ def pipeline_worker(
 
                         else:
 
-                            # Worker inicial
+                            # Primeiro worker
                             segment_primes[
                                 worker_id
                             ] = candidate
@@ -205,11 +230,8 @@ def pipeline_worker(
             else:
                 candidate += 2
 
-        # Pequena pausa anti busy-wait
         if not found:
-            time.sleep(0.001)
-
-        #Ver isto depois not goood at all
+            time.sleep(0.0005)
 
 
 def find_max_prime_parallel(
@@ -219,32 +241,34 @@ def find_max_prime_parallel(
 
     end_time = time.time() + timeout
 
-    manager = multiprocessing.Manager()
+    # Arrays partilhados
+    pipeline_order = multiprocessing.Array(
+        'i',
+        range(workers)
+    )
 
-    # Ordem lógica da pipeline
-    pipeline_order = manager.list([
-        i for i in range(workers)
-    ])
+    segment_starts = multiprocessing.Array(
+        'q',
+        [
+            i * SEGMENT_SIZE
+            for i in range(workers)
+        ]
+    )
 
-    # Segmentos atribuídos
-    segment_starts = manager.list([
-        i * SEGMENT_SIZE
-        for i in range(workers)
-    ])
+    segment_primes = multiprocessing.Array(
+        'q',
+        [0] * workers
+    )
 
-    # Melhor primo de cada worker
-    segment_primes = manager.list([
-        0 for _ in range(workers)
-    ])
-
-    # Próximo segmento livre
     next_segment_start = multiprocessing.Value(
         'q',
         workers * SEGMENT_SIZE
     )
 
-    # Melhor primo global
-    shared_max = multiprocessing.Value('q', 2)
+    shared_max = multiprocessing.Value(
+        'q',
+        2
+    )
 
     lock = multiprocessing.Lock()
 
@@ -256,6 +280,7 @@ def find_max_prime_parallel(
             target=pipeline_worker,
             args=(
                 worker_id,
+                workers,
                 pipeline_order,
                 segment_starts,
                 segment_primes,
