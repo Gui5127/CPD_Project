@@ -15,6 +15,18 @@ CELL_BYTES_SIZE = 4  # int32
 # =========================================================
 
 def create_shared_grid(grid):
+    """
+    Cria uma estrutura de memória partilhada a partir de uma grelha 2D.
+
+    Converte uma matriz Python em shared memory linearizada para permitir
+    acesso eficiente por múltiplos processos.
+
+    Args:
+        grid (list[list[int]]): grelha inicial (0 = morto, 1 = vivo)
+
+    Returns:
+        SharedMemory: objeto de memória partilhada inicializado
+    """
 
     rows = len(grid)
     cols = len(grid[0])
@@ -47,6 +59,18 @@ def create_shared_grid(grid):
 
 
 def read_cell(buffer, cols, row, col):
+    """
+    Lê o valor de uma célula específica da memória partilhada.
+
+    Args:
+        buffer (memoryview): buffer da shared memory
+        cols (int): número de colunas da grelha
+        row (int): linha da célula
+        col (int): coluna da célula
+
+    Returns:
+        int: valor da célula (0 ou 1)
+    """
 
     index = row * cols + col
 
@@ -58,6 +82,19 @@ def read_cell(buffer, cols, row, col):
 
 
 def write_cell(buffer, cols, row, col, value):
+    """
+    Escreve um valor numa célula da memória partilhada.
+
+    Args:
+        buffer (memoryview): buffer da shared memory
+        cols (int): número de colunas da grelha
+        row (int): linha da célula
+        col (int): coluna da célula
+        value (int): valor a escrever (0 ou 1)
+
+    Returns:
+        None
+    """
 
     index = row * cols + col
 
@@ -70,6 +107,17 @@ def write_cell(buffer, cols, row, col, value):
 
 
 def shared_to_grid(shm, rows, cols):
+    """
+    Converte memória partilhada de volta para uma grelha 2D Python.
+
+    Args:
+        shm (SharedMemory): memória partilhada
+        rows (int): número de linhas
+        cols (int): número de colunas
+
+    Returns:
+        list[list[int]]: grelha reconstruída
+    """
 
     buffer = shm.buf
 
@@ -100,6 +148,21 @@ def shared_to_grid(shm, rows, cols):
 # =========================================================
 
 def count_neighbors(buffer, rows, cols, row, col):
+    """
+    Conta o número de vizinhos vivos de uma célula no Game of Life.
+
+    Considera as 8 células adjacentes (incluindo diagonais).
+
+    Args:
+        buffer (memoryview): memória partilhada
+        rows (int): número de linhas
+        cols (int): número de colunas
+        row (int): linha da célula
+        col (int): coluna da célula
+
+    Returns:
+        int: número de vizinhos vivos
+    """
 
     neighbors = 0
 
@@ -129,6 +192,19 @@ def count_neighbors(buffer, rows, cols, row, col):
 
 
 def next_generation(grid):
+    """
+    Calcula a próxima geração do Game of Life (versão sequencial).
+
+    Aplica as regras clássicas de Conway:
+    - célula viva com 2 ou 3 vizinhos sobrevive
+    - célula morta com exatamente 3 vizinhos nasce
+
+    Args:
+        grid (list[list[int]]): estado atual
+
+    Returns:
+        list[list[int]]: nova geração
+    """
 
     rows = len(grid)
     cols = len(grid[0])
@@ -182,6 +258,16 @@ def game_of_life_sequential(
     grid,
     generations
 ):
+    """
+    Executa o Game of Life de forma sequencial por múltiplas gerações.
+
+    Args:
+        grid (list[list[int]]): estado inicial
+        generations (int): número de iterações
+
+    Returns:
+        list[list[int]]: estado final após todas as gerações
+    """
 
     current = grid
 
@@ -200,6 +286,19 @@ def persistent_worker(
     task_queue,
     result_queue
 ):
+    """
+    Worker persistente para execução paralela do Game of Life.
+
+    Recebe tarefas via fila e processa segmentos da grelha usando memória
+    partilhada. Após processar, devolve sinal de conclusão.
+
+    Args:
+        task_queue (Queue): fila de tarefas
+        result_queue (Queue): fila de resultados
+
+    Returns:
+        None
+    """
 
     while True:
 
@@ -250,8 +349,6 @@ def persistent_worker(
 
                 value = 0
 
-                # Conway rules
-
                 if alive == 1:
 
                     if neighbors in (2, 3):
@@ -285,6 +382,20 @@ def game_of_life_parallel(
     generations,
     workers
 ):
+    """
+    Executa o Game of Life em paralelo utilizando múltiplos processos.
+
+    A grelha é dividida em blocos de linhas e cada worker processa uma parte
+    em memória partilhada. Após cada geração, ocorre sincronização.
+
+    Args:
+        grid (list[list[int]]): estado inicial
+        generations (int): número de iterações
+        workers (int): número de processos
+
+    Returns:
+        list[list[int]]: estado final após todas as gerações
+    """
 
     rows = len(grid)
     cols = len(grid[0])

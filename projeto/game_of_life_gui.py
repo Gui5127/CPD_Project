@@ -36,8 +36,34 @@ WORKER_COLORS = [
 # =========================================================
 
 class GameOfLifeGUI:
+    """
+    Interface gráfica para o Game of Life.
+
+    Permite executar o jogo em modo:
+    - sequencial (local ou via RPC)
+    - paralelo (local ou via RPC)
+
+    A interface inclui:
+    - grelha interativa clicável
+    - controlo de execução (start/stop/next)
+    - geração aleatória e reset
+    - visualização de workers em modo paralelo
+    """
 
     def __init__(self, root):
+        """
+        Inicializa a interface gráfica do Game of Life.
+
+        Configura:
+        - ligação RPC (se disponível)
+        - grelha inicial
+        - canvas de desenho
+        - controlos de UI (botões, modos, inputs)
+        - estado inicial da simulação
+
+        Args:
+            root (tk.Tk): janela principal do Tkinter
+        """
 
         self.root = root
 
@@ -190,6 +216,16 @@ class GameOfLifeGUI:
     # =====================================================
 
     def draw_grid(self):
+        """
+        Renderiza a grelha atual no canvas.
+
+        Cada célula é desenhada como um retângulo:
+        - branco: célula viva
+        - escuro: célula morta
+
+        Em modo paralelo, cada linha é associada a um worker,
+        colorindo os contornos para visualização da divisão do trabalho.
+        """
 
         self.canvas.delete("all")
 
@@ -258,6 +294,15 @@ class GameOfLifeGUI:
     # =====================================================
 
     def toggle_cell(self, event):
+        """
+        Altera o estado de uma célula ao clicar na grelha.
+
+        Converte coordenadas do clique em índices da grelha
+        e alterna entre 0 (morto) e 1 (vivo).
+
+        Args:
+            event (tk.Event): evento de clique do rato
+        """
 
         col = event.x // CELL_SIZE
         row = event.y // CELL_SIZE
@@ -279,6 +324,15 @@ class GameOfLifeGUI:
     # =====================================================
 
     def next_step(self):
+        """
+        Avança a simulação uma geração.
+
+        Dependendo do modo selecionado:
+        - Sequential: usa versão local ou RPC sequencial
+        - Parallel: usa versão local ou RPC paralela
+
+        Atualiza a grelha com o novo estado.
+        """
 
         mode = self.mode.get()
 
@@ -379,6 +433,12 @@ class GameOfLifeGUI:
     # =====================================================
 
     def run_loop(self):
+        """
+        Loop automático de execução do Game of Life.
+
+        Executa repetidamente `next_step()` enquanto a simulação
+        estiver ativa, respeitando o atraso definido em UPDATE_DELAY.
+        """
 
         if not self.running:
             return
@@ -395,6 +455,12 @@ class GameOfLifeGUI:
     # =====================================================
 
     def toggle_running(self):
+        """
+        Alterna o estado de execução contínua da simulação.
+
+        Inicia ou para o loop automático do Game of Life.
+        Também atualiza o texto do botão Start/Stop.
+        """
 
         self.running = not self.running
 
@@ -417,6 +483,13 @@ class GameOfLifeGUI:
     # =====================================================
 
     def reset_grid(self):
+        """
+        Reinicia a grelha para o estado vazio.
+
+        - Para a simulação
+        - Define todas as células como mortas
+        - Atualiza a interface
+        """
 
         self.running = False
 
@@ -436,6 +509,12 @@ class GameOfLifeGUI:
     # =====================================================
 
     def randomize_grid(self):
+        """
+        Preenche a grelha com valores aleatórios (0 ou 1).
+
+        Usado para criar configurações iniciais rápidas
+        para simulação do Game of Life.
+        """
 
         self.grid = [
             [
@@ -453,8 +532,16 @@ class GameOfLifeGUI:
 
 
     def draw_worker_legend(self, workers):
+        """
+        Desenha uma legenda visual dos workers na interface.
 
-        # Começar fora da grid
+        Cada worker recebe uma cor e é exibido numa barra lateral,
+        permitindo visualizar a divisão do processamento no modo paralelo.
+
+        Args:
+            workers (int): número de workers ativos
+        """
+
         legend_x = (GRID_COLS * CELL_SIZE) + 20
         legend_y = 20
 
@@ -498,6 +585,11 @@ class GameOfLifeGUI:
 # =========================================================
 
 def run_gui():
+    """
+    Inicializa e executa a interface gráfica do Game of Life.
+
+    Cria a janela principal Tkinter e inicia o loop da aplicação.
+    """
 
     root = tk.Tk()
 

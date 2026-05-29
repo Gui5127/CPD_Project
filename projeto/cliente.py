@@ -2,6 +2,18 @@ from rpc_client import RPCClient
 
 
 def main():
+    """
+    Interface de linha de comandos para testes RPC.
+
+    Permite:
+    - testar primalidade
+    - executar versão sequencial/paralela
+    - correr Game of Life GUI
+    - listar métodos RPC
+
+    Returns:
+        None
+    """
 
     rpc = RPCClient()
 

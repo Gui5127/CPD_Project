@@ -49,6 +49,17 @@ METHODS = {
 # =========================================================
 
 def list_methods():
+    """
+    Lista todos os métodos RPC disponíveis no servidor.
+
+    Inclui:
+    - nome do método
+    - parâmetros aceites
+    - descrição (docstring da função)
+
+    Returns:
+        list[dict]: lista de métodos disponíveis
+    """
 
     methods_info = []
 
@@ -81,6 +92,18 @@ METHODS["list_methods"] = list_methods
 # =========================================================
 
 def recv_exact(conn, size):
+    """
+    Recebe exatamente um número fixo de bytes de um socket.
+
+    Garante que a leitura é completa antes de retornar.
+
+    Args:
+        conn (socket): ligação TCP
+        size (int): número de bytes a receber
+
+    Returns:
+        bytes | None: dados recebidos ou None se conexão fechar
+    """
 
     data = b""
 
@@ -103,6 +126,19 @@ def recv_exact(conn, size):
 # =========================================================
 
 def receive_message(conn):
+    """
+    Recebe uma mensagem completa via protocolo RPC.
+
+    O protocolo usa:
+    - header de 4 bytes (tamanho)
+    - payload JSON
+
+    Args:
+        conn (socket): ligação TCP
+
+    Returns:
+        dict | None: mensagem decodificada ou None
+    """
 
     header = recv_exact(conn, 4)
 
@@ -132,6 +168,18 @@ def receive_message(conn):
 # =========================================================
 
 def send_message(conn, message_dict):
+    """
+    Envia uma mensagem RPC ao cliente.
+
+    Serializa um dicionário em JSON e envia com header de tamanho.
+
+    Args:
+        conn (socket): ligação TCP
+        message_dict (dict): mensagem a enviar
+
+    Returns:
+        None
+    """
 
     message = json.dumps(
         message_dict
@@ -152,6 +200,19 @@ def send_message(conn, message_dict):
 # =========================================================
 
 def handle_client(conn, addr):
+    """
+    Gerencia a comunicação com um cliente RPC.
+
+    Executa pedidos em loop, despacha métodos dinamicamente e devolve
+    resultados ou erros.
+
+    Args:
+        conn (socket): ligação do cliente
+        addr (tuple): endereço do cliente
+
+    Returns:
+        None
+    """
 
     print(f"\nCliente ligado: {addr}")
 
@@ -225,6 +286,16 @@ def handle_client(conn, addr):
 # =========================================================
 
 def start_server():
+    """
+    Inicia o servidor RPC.
+
+    - abre socket TCP
+    - escuta conexões
+    - cria uma thread por cliente
+
+    Returns:
+        None
+    """
 
     server = socket.socket(
         socket.AF_INET,

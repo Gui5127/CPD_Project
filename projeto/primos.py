@@ -6,6 +6,21 @@ SEGMENT_SIZE = 10_000_000
 
 
 def is_prime(n: int) -> bool:
+    """
+    Determina se um número inteiro é primo.
+
+    A função usa otimização clássica:
+    - elimina números menores que 2
+    - trata 2 e 3 como casos especiais
+    - elimina múltiplos de 2 e 3
+    - testa divisores da forma 6k ± 1 até sqrt(n)
+
+    Args:
+        n (int): número inteiro a testar
+
+    Returns:
+        bool: True se for primo, False caso contrário
+    """
 
     if n < 2:
         return False
@@ -29,6 +44,19 @@ def is_prime(n: int) -> bool:
 
 
 def find_max_prime_sequential(timeout: int) -> int:
+    """
+    Procura o maior número primo encontrado num intervalo de tempo,
+    utilizando uma abordagem sequencial.
+
+    A função executa continuamente a verificação de números ímpares
+    até que o tempo limite (timeout) seja atingido.
+
+    Args:
+        timeout (int): tempo máximo de execução em segundos
+
+    Returns:
+        int: maior número primo encontrado dentro do tempo limite
+    """
 
     start = time.time()
 
@@ -60,6 +88,34 @@ def pipeline_worker(
     end_time,
     lock
 ):
+    """
+        Worker de pipeline paralelo para procura de números primos.
+
+        Cada worker processa um segmento distinto de números e, quando encontra
+        um primo relevante, pode "reencadear-se" para outro segmento,
+        criando um pipeline dinâmico de processamento.
+
+        Este worker:
+        - percorre o seu segmento atual
+        - verifica primos
+        - atualiza estado partilhado entre workers
+        - realiza rotação de pipeline quando necessário
+        - mantém o maior primo global atualizado
+
+        Args:
+            worker_id (int): identificador do worker
+            workers (int): número total de workers
+            pipeline_order (list): ordem atual dos workers no pipeline
+            segment_starts (Array): início do segmento por worker
+            segment_primes (Array): maior primo encontrado por worker
+            next_segment_start (Value): próximo segmento disponível
+            shared_max (Value): maior primo global
+            end_time (float): timestamp limite de execução
+            lock (Lock): lock de sincronização
+
+        Returns:
+            None
+        """
 
     while time.time() < end_time:
 
@@ -238,6 +294,20 @@ def find_max_prime_parallel(
     timeout: int,
     workers: int
 ) -> int:
+
+    """
+    Procura o maior número primo utilizando múltiplos processos em paralelo.
+
+    A estratégia divide o espaço numérico em segmentos grandes e atribui-os
+    dinamicamente aos workers através de um sistema de pipeline.
+
+    Args:
+        timeout (int): tempo máximo de execução em segundos
+        workers (int): número de processos paralelos
+
+    Returns:
+        int: maior número primo encontrado dentro do tempo limite
+    """
 
     end_time = time.time() + timeout
 
