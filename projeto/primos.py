@@ -294,7 +294,6 @@ def find_max_prime_parallel(
     timeout: int,
     workers: int
 ) -> int:
-
     """
     Procura o maior número primo utilizando múltiplos processos em paralelo.
 

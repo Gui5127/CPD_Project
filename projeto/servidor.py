@@ -7,8 +7,8 @@ import multiprocessing
 
 from primos import (
     is_prime,
-    find_max_prime_parallel,
-    find_max_prime_sequential
+    find_max_prime_sequential,
+    find_max_prime_parallel
 )
 
 from game_of_life import (
@@ -42,6 +42,87 @@ METHODS = {
     "game_of_life_parallel":
         game_of_life_parallel
 }
+
+# =========================================================
+# PARAMETER VALIDATION
+# =========================================================
+
+def validate_params(method, params):
+    """
+    Validação robusta dos parâmetros RPC.
+    """
+
+    # ---------------------------
+    # IS PRIME
+    # ---------------------------
+    if method == "is_prime":
+
+        n = params.get("n")
+
+        if not isinstance(n, int):
+            raise ValueError("n deve ser int")
+
+        if n < 0:
+            raise ValueError("n não pode ser negativo")
+
+
+    # ---------------------------
+    # SEQUENTIAL PRIME
+    # ---------------------------
+    elif method == "find_max_prime_sequential":
+
+        timeout = params.get("timeout")
+
+        if not isinstance(timeout, int):
+            raise ValueError("timeout deve ser int")
+
+        if timeout <= 0:
+            raise ValueError("timeout deve ser > 0")
+
+
+    # ---------------------------
+    # PARALLEL PRIME
+    # ---------------------------
+    elif method == "find_max_prime_parallel":
+
+        timeout = params.get("timeout")
+        workers = params.get("workers")
+
+        if not isinstance(timeout, int) or timeout <= 0:
+            raise ValueError("timeout inválido")
+
+        if not isinstance(workers, int) or workers <= 0:
+            raise ValueError("workers deve ser > 0")
+
+
+    # ---------------------------
+    # GAME OF LIFE
+    # ---------------------------
+    elif method in ("game_of_life", "game_of_life_parallel"):
+
+        grid = params.get("grid")
+        generations = params.get("generations")
+
+        if not isinstance(generations, int) or generations <= 0:
+            raise ValueError("generations deve ser > 0")
+
+        if not isinstance(grid, list) or len(grid) == 0:
+            raise ValueError("grid inválida")
+
+        row_len = len(grid[0])
+
+        for row in grid:
+
+            if not isinstance(row, list):
+                raise ValueError("grid inválida (linha não é lista)")
+
+            if len(row) != row_len:
+                raise ValueError("grid irregular (não retangular)")
+
+            for cell in row:
+
+                if cell not in (0, 1):
+                    raise ValueError("grid deve conter apenas 0 ou 1")
 
 
 # =========================================================
@@ -248,6 +329,9 @@ def handle_client(conn, addr):
                 else:
 
                     func = METHODS[method]
+
+                    # validação antes de executar
+                    validate_params(method, params)
 
                     result = func(**params)
 

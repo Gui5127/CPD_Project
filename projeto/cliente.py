@@ -1,5 +1,25 @@
 from rpc_client import RPCClient
 
+def safe_input_int(prompt: str) -> int:
+    """
+    Lê um inteiro do utilizador de forma segura.
+
+    Repete o input até o utilizador inserir um valor válido.
+
+    Args:
+        prompt (str): mensagem a mostrar
+
+    Returns:
+        int: valor inteiro válido
+    """
+
+    while True:
+
+        try:
+            return int(input(prompt))
+
+        except ValueError:
+            print("Valor inválido. Introduz um número inteiro.")
 
 def main():
     """
@@ -36,9 +56,7 @@ def main():
 
         if choice == "1":
 
-            n = int(
-                input("Número: ")
-            )
+            n = safe_input_int("Número: ")
 
             response = rpc.request(
                 "is_prime",
@@ -56,9 +74,7 @@ def main():
 
         elif choice == "2":
 
-            timeout = int(
-                input("Timeout: ")
-            )
+            timeout = safe_input_int("Timeout: ")
 
             response = rpc.request(
                 "find_max_prime_sequential",
@@ -76,16 +92,12 @@ def main():
 
         elif choice == "3":
 
-            timeout = int(
-                input("Timeout: ")
-            )
+            timeout = safe_input_int("Timeout: ")
 
-            workers = int(
-                input("Workers: ")
-            )
+            workers = safe_input_int("Workers: ")
 
             response = rpc.request(
-                "find_max_prime",
+                "find_max_prime_parallel",
                 {
                     "timeout": timeout,
                     "workers": workers

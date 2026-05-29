@@ -5,6 +5,32 @@ import multiprocessing
 import time
 from game_of_life_gui import run_gui
 
+def safe_int(prompt: str, min_value=None) -> int:
+    """
+    Garante as validações dos parâmetros de entrada.
+
+    Args:
+        prompt (str): mensagem de input
+        min_value (int | None): valor mínimo permitido
+
+    Returns:
+        int: inteiro válido
+    """
+
+    while True:
+
+        try:
+            value = int(input(prompt))
+
+            if min_value is not None and value < min_value:
+                print(f"Valor inválido. Deve ser >= {min_value}")
+                continue
+
+            return value
+
+        except ValueError:
+            print("Entrada inválida. Introduz um número inteiro.")
+
 def run_is_prime(n):
     """
     Executa teste de primalidade e imprime resultado.
@@ -15,6 +41,10 @@ def run_is_prime(n):
     Returns:
         None
     """
+
+    if n <= 0:
+        print("O número deve ser positivo.")
+        return
 
     print("\n===== TESTE É PRIMO =====\n")
 
@@ -33,6 +63,11 @@ def run_sequential(timeout):
     Returns:
         None
     """
+
+    if timeout <= 0:
+        print("Timeout inválido.")
+        return
+
 
     print("\n===== TESTE SEQUENCIAL =====\n")
 
@@ -59,6 +94,14 @@ def run_parallel(timeout, workers):
         None
     """
 
+    if timeout <= 0:
+        print("Timeout inválido.")
+        return
+
+    if workers <= 0:
+        print("Workers inválidos.")
+        return
+
     print("\n===== TESTE PARALELO =====\n")
 
     start = time.time()
@@ -82,7 +125,7 @@ def choose_number():
     Returns:
         int: número introduzido pelo utilizador
     """
-    return int(input("\nInsere o número a testar: "))
+    return safe_int("\nInsere o número a testar: ")
 
 def choose_timeout():
     """
@@ -94,7 +137,7 @@ def choose_timeout():
     Returns:
         int: timeout em segundos introduzido pelo utilizador
     """
-    return int(input("\nInsere o timeout (em segundos): "))
+    return safe_int("\nInsere o timeout (em segundos): ", min_value=1)
 
 
 def choose_workers():
@@ -107,7 +150,7 @@ def choose_workers():
     Returns:
         int: número de workers introduzido pelo utilizador
     """
-    return int(input("\nInsere o número de workers: "))
+    return safe_int("\nInsere o número de workers: ", min_value=1)
 
 
 def main():
